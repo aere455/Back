@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق ذكاء الاصطناعي واحد قلعة</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.0/dist/tesseract.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --text-color: #333;
+            --bg-color: #f0f0f0;
+            --neumorphic-light: #ffffff;
+            --neumorphic-dark: #d1d9e6;
+        }
+        .dark-mode {
+            --primary-color: #2980b9;
+            --secondary-color: #27ae60;
+            --text-color: #f0f0f0;
+            --bg-color: #2c3e50;
+            --neumorphic-light: #3c536a;
+            --neumorphic-dark: #1c2e40;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+        .neumorphic {
+            background: var(--bg-color);
+            box-shadow: 5px 5px 10px var(--neumorphic-dark), -5px -5px 10px var(--neumorphic-light);
+            border-radius: 15px;
+        }
+        .neumorphic-inset {
+            background: var(--bg-color);
+            box-shadow: inset 5px 5px 10px var(--neumorphic-dark), inset -5px -5px 10px var(--neumorphic-light);
+            border-radius: 15px;
+        }
+        #editor {
+            height: 60vh;
+            background-color: white;
+            color: black;
+        }
+        .feature-button {
+            transition: all 0.3s ease;
+        }
+        .feature-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .animated-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--neumorphic-light);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .image-editor {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--bg-color);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+        #canvas {
+            border: 2px solid var(--secondary-color);
+            border-radius: 10px;
+        }
+        .crop-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1001;
+        }
+        .crop-container img {
+            display: block;
+            max-width: 100%;
+        }
+        .crop-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body class="p-8">
+    <div class="animated-bg"></div>
+    <div class="container mx-auto neumorphic p-8">
+        <header class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold text-primary-color">تطبيق ذكاء الاصطناعي واحد قلعة</h1>
+            <div>
+                <button id="darkModeToggle" class="neumorphic p-2 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <div id="editor" class="neumorphic-inset mb-8"></div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+            <button class="feature-button neumorphic p-2 rounded" onclick="useTemplate()">استخدام قالب</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="toggleCollaboration()">تفعيل/تعطيل التعاون</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="startVoiceToText()">تحويل الصوت إلى نص</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="getAISuggestions()">اقتراحات الذكاء الاصطناعي</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="switchLanguage()">تغيير اللغة</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="insertTable()">إدراج جدول</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="showStatistics()">إحصائيات المستند</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="printDocument()">طباعة المستند</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="openImageEditor()">تحرير صورة</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="performGrammarCheck()">التدقيق النحوي</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="insertShape()">إدراج شكل</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="performOCR()">التعرف على النص من الصور</button>
+            <button class="feature-button neumorphic p-2 rounded" onclick="exportDocument()">تصدير المستند</button>
+        </div>
+
+        <div id="statusBar" class="neumorphic p-4 rounded mb-8">
+            <p>الحالة: <span id="status">جاهز</span></p>
+            <p>آخر حفظ: <span id="lastSaved">لم يتم الحفظ بعد</span></p>
+        </div>
+
+        <h2 class="text-2xl font-bold mb-4">   محادثة ذكاء اصطناعي مع المهندس عقيل خالد</h2>
+        <div class="flex mb-4">
+            <input type="text" id="user-input" placeholder="   اسأل عقيل خالد..." class="flex-grow neumorphic-inset p-2 ml-2">
+            <button id="send-btn" class="feature-button neumorphic p-2 rounded">إرسال</button>
+        </div>
+    </div>
+
+    <div class="image-editor neumorphic">
+        <canvas id="canvas"></canvas>
+        <div class="controls grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
+            <input type="file" id="imageLoader" accept="image/*" class="feature-button neumorphic p-2 rounded">
+            <button id="cropBtn" class="feature-button neumorphic p-2 rounded">قص الصورة</button>
+            <button id="rotateBtn" class="feature-button neumorphic p-2 rounded">تدوير الصورة</button>
+            <button id="flipHBtn" class="feature-button neumorphic p-2 rounded">قلب أفقي</button>
+            <button id="flipVBtn" class="feature-button neumorphic p-2 rounded">قلب عمودي</button>
+            <div>
+                <input type="range" id="brightnessRange" min="-1" max="1" step="0.1" value="0" class="w-full">
+                <label for="brightnessRange">السطوع</label>
+            </div>
+            <div>
+                <input type="range" id="contrastRange" min="-1" max="1" step="0.1" value="0" class="w-full">
+                <label for="contrastRange">التباين</label>
+            </div>
+            <div>
+                <input type="range" id="saturationRange" min="-1" max="1" step="0.1" value="0" class="w-full">
+                <label for="saturationRange">التشبع</label>
+            </div>
+        </div>
+        <div class="filters grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="vintage">فينتاج</button>
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="sepia">سيبيا</button>
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="polaroid">بولارويد</button>
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="kodachrome">كوداكروم</button>
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="technicolor">تكنيكولور</button>
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="brownie">براوني</button>
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="blackwhite">أبيض وأسود</button>
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="vintage2">فينتاج 2</button>
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="sharpen">تحسين الحدة</button>
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="emboss">نقش</button>
+            <button class="filter-btn feature-button neumorphic p-2 rounded" data-filter="technicolor2">تكنيكولور 2</button>
+        </div>
+        <button id="applyImageBtn" class="feature-button neumorphic p-2 rounded mt-4">تطبيق التغييرات</button>
+        <button id="cancelImageBtn" class="feature-button neumorphic p-2 rounded mt-4">إلغاء</button>
+    </div>
+
+    <div class="crop-container">
+        <img id="cropImage" src="">
+        <div class="crop-controls">
+            <button id="applyCrop" class="feature-button neumorphic p-2 rounded">تطبيق القص</button>
+            <button id="cancelCrop" class="feature-button neumorphic p-2 rounded">إلغاء</button>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'AIzaSyAoKqvU0glsacc9vpYIhKiOK3Kw4SIAlIU';
+        const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+
+        let quill;
+        let darkMode = false;
+        let collaborationEnabled = false;
+        let canvas, image;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            quill = new Quill('#editor', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'font': [] }, { 'size': [] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'script': 'sub'}, { 'script': 'super' }],
+                        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        [{ 'indent': '-1'}, { 'indent': '+1' }],
+                        [{ 'direction': 'rtl' }],
+                        [{ 'align': [] }],
+                                                ['link', 'image', 'video'],
+                        ['clean']
+                    ]
+                }
+            });
+
+            setInterval(autoSave, 30000);
+
+            initializeImageEditor();
+        });
+
+        document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
+        document.getElementById('send-btn').addEventListener('click', sendMessage);
+        document.getElementById('user-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            document.body.classList.toggle('dark-mode');
+        }
+
+        function autoSave() {
+            const content = quill.getContents();
+            localStorage.setItem('webdoc-content', JSON.stringify(content));
+            document.getElementById('lastSaved').textContent = new Date().toLocaleTimeString();
+        }
+
+        function useTemplate() {
+            const templates = {
+                'cv': [
+                    { insert: 'السيرة الذاتية\n', attributes: { header: 1 } },
+                    { insert: 'الاسم:\nالعنوان:\nالبريد الإلكتروني:\nرقم الهاتف:\n\nالخبرة المهنية:\n\nالتعليم:\n\nالمهارات:\n' }
+                ],
+                'report': [
+                    { insert: 'تقرير العمل\n', attributes: { header: 1 } },
+                    { insert: 'التاريخ:\nالموضوع:\n\nالملخص التنفيذي:\n\nالتفاصيل:\n\nالنتائج:\n\nالتوصيات:\n' }
+                ],
+                'letter': [
+                    { insert: 'رسالة رسمية\n', attributes: { header: 1 } },
+                    { insert: 'التاريخ:\n\nالمرسل إليه:\n\nتحية طيبة وبعد،\n\nموضوع الرسالة:\n\nمحتوى الرسالة:\n\nمع أطيب التحيات،\nالاسم\n' }
+                ]
+            };
+            
+            const templateType = prompt('اختر نوع القالب (cv, report, letter):');
+            if (templates[templateType]) {
+                quill.setContents(templates[templateType]);
+            } else {
+                alert('القالب غير موجود');
+            }
+        }
+
+        function toggleCollaboration() {
+            collaborationEnabled = !collaborationEnabled;
+            document.getElementById('status').textContent = collaborationEnabled ? 'التعاون مفعل' : 'التعاون معطل';
+            // هنا يمكن إضافة كود لتفعيل التعاون الفعلي باستخدام مكتبة مثل Socket.io
+        }
+
+        function startVoiceToText() {
+            if ('webkitSpeechRecognition' in window) {
+                const recognition = new webkitSpeechRecognition();
+                recognition.lang = 'ar-SA';
+                recognition.continuous = true;
+                recognition.interimResults = true;
+
+                recognition.onresult = function(event) {
+                    const result = event.results[event.results.length - 1];
+                    const transcript = result[0].transcript;
+                    quill.insertText(quill.getLength(), transcript);
+                };
+
+                recognition.start();
+            } else {
+                alert('التعرف على الصوت غير مدعوم في متصفحك.');
+            }
+        }
+
+        function getAISuggestions() {
+            const content = quill.getText();
+            // محاكاة اقتراح الذكاء الاصطناعي (في التطبيق الحقيقي، سيتم استدعاء خدمة الذكاء الاصطناعي)
+            const suggestion = "فكر في استخدام صفات أكثر وصفية لتحسين كتابتك.";
+            quill.insertText(quill.getLength(), "\n\nاقتراح الذكاء الاصطناعي: " + suggestion);
+        }
+
+        function switchLanguage() {
+            const languages = ['العربية', 'الإنجليزية', 'الفرنسية', 'الألمانية', 'الإسبانية'];
+            const currentLang = localStorage.getItem('webdoc-language') || 'العربية';
+            const nextLang = languages[(languages.indexOf(currentLang) + 1) % languages.length];
+            localStorage.setItem('webdoc-language', nextLang);
+            quill.insertText(quill.getLength(), `\n\nتم تغيير اللغة إلى ${nextLang}\n`);
+        }
+
+        function insertTable() {
+            quill.insertText(quill.getLength(), '\n');
+            quill.insertTable(3, 3);
+        }
+
+        function showStatistics() {
+            const text = quill.getText();
+            const wordCount = text.trim().split(/\s+/).length;
+            const charCount = text.length;
+            const readabilityScore = Math.floor(Math.random() * 100); // درجة قابلية القراءة المحاكاة
+
+            quill.insertText(quill.getLength(), `\n\nإحصائيات المستند:\nعدد الكلمات: ${wordCount}\nعدد الأحرف: ${charCount}\nدرجة قابلية القراءة: ${readabilityScore}/100\n`);
+        }
+
+        function printDocument() {
+            const content = quill.root.innerHTML;
+            const printWindow = window.open('', '', 'height=400,width=800');
+            printWindow.document.write('<html><head><title>طباعة المستند</title>');
+            printWindow.document.write('</head><body >');
+            printWindow.document.write(content);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        function performGrammarCheck() {
+            // هذه مجرد محاكاة للتدقيق النحوي. في التطبيق الحقيقي، ستحتاج إلى استخدام خدمة API للتدقيق النحوي
+            const text = quill.getText();
+            const errors = [
+                { index: 10, length: 5, suggestion: "تصحيح مقترح" },
+                { index: 50, length: 3, suggestion: "كلمة بديلة" }
+            ];
+            
+            errors.forEach(error => {
+                quill.formatText(error.index, error.length, 'background', 'yellow');
+            });
+            
+            alert("تم العثور على أخطاء محتملة. انظر إلى الكلمات المظللة بالأصفر.");
+        }
+
+        function insertShape() {
+            const shapes = [
+                '◯', '□', '△', '♡', '☆', '◇', '▷', '◁', '♢', '♤', '♧', '♯'
+            ];
+            const randomShape = shapes[Math.floor(Math.random() * shapes.length)];
+            quill.insertText(quill.getSelection().index, randomShape);
+        }
+
+        function performOCR() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                Tesseract.recognize(file, 'ara')
+                    .then(({ data: { text } }) => {
+                        quill.insertText(quill.getLength(), '\n' + text);
+                    })
+                    .catch(error => {
+                        console.error('خطأ في التعرف على النص:', error);
+                        alert('حدث خطأ أثناء التعرف على النص من الصورة.');
+                    });
+            };
+            input.click();
+        }
+
+        function exportDocument() {
+            const content = quill.getContents();
+            const text = quill.getText();
+            const html = quill.root.innerHTML;
+            
+            // تصدير كنص عادي
+            const textBlob = new Blob([text], { type: 'text/plain' });
+            const textUrl = URL.createObjectURL(textBlob);
+            const textLink = document.createElement('a');
+            textLink.href = textUrl;
+            textLink.download = 'document.txt';
+            textLink.click();
+            
+            // تصدير كـ HTML
+            const htmlBlob = new Blob([html], { type: 'text/html' });
+            const htmlUrl = URL.createObjectURL(htmlBlob);
+            const htmlLink = document.createElement('a');
+            htmlLink.href = htmlUrl;
+            htmlLink.download = 'document.html';
+            htmlLink.click();
+            
+            // يمكن إضافة المزيد من صيغ التصدير هنا (مثل PDF) باستخدام مكتبات إضافية
+        }
+
+        async function sendMessage() {
+            const userMessage = document.getElementById('user-input').value.trim();
+            if (userMessage === '') return;
+
+            quill.insertText(quill.getLength(), `\n\nالمستخدم: ${userMessage}\n`);
+            document.getElementById('user-input').value = '';
+
+            const loadingDiv = document.createElement('div');
+            loadingDiv.classList.add('loading');
+            document.getElementById('editor').appendChild(loadingDiv);
+
+            try {
+                const response = await fetch(`${API_URL}?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: userMessage
+                            }]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                const botReply = data.candidates[0].content.parts[0].text;
+
+                document.getElementById('editor').removeChild(loadingDiv);
+                quill.insertText(quill.getLength(), `Gemini AI: ${botReply}\n\n`);
+            } catch (error) {
+                console.error('خطأ:', error);
+                document.getElementById('editor').removeChild(loadingDiv);
+                quill.insertText(quill.getLength(), 'عذرًا، حدث خطأ. يرجى المحاولة مرة أخرى لاحقًا.\n\n');
+            }
+        }
+
+        function initializeImageEditor() {
+            canvas = new fabric.Canvas('canvas', {
+                width: 600,
+                height: 400
+            });
+
+            document.getElementById('imageLoader').onchange = function(e) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        image = new fabric.Image(img);
+                        image.scaleToWidth(canvas.width);
+                        canvas.centerObject(image);
+                        canvas.add(image);
+                        canvas.renderAll();
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(e.target.files[0]);
+            };
+
+            document.getElementById('cropBtn').onclick = function() {
+                if (!image) return;
+                const cropContainer = document.querySelector('.crop-container');
+                cropContainer.style.display = 'block';
+                const cropImage = document.getElementById('cropImage');
+                cropImage.src = canvas.toDataURL();
+                const cropper = new Cropper(cropImage, {
+                    aspectRatio: NaN,
+                    viewMode: 1,
+                });
+
+                document.getElementById('applyCrop').onclick = function() {
+                    const croppedCanvas = cropper.getCroppedCanvas();
+                    const croppedImage = new Image();
+                    croppedImage.src = croppedCanvas.toDataURL();
+                    croppedImage.onload = function() {
+                        canvas.clear();
+                        image = new fabric.Image(croppedImage);
+                        canvas.add(image);
+                        canvas.renderAll();
+                    }
+                    cropContainer.style.display = 'none';
+                    cropper.destroy();
+                };
+
+                document.getElementById('cancelCrop').onclick = function() {
+                    cropContainer.style.display = 'none';
+                    cropper.destroy();
+                };
+            };
+
+            document.getElementById('rotateBtn').onclick = function() {
+                if (!image) return;
+                image.rotate(image.angle + 90);
+                canvas.renderAll();
+            };
+
+            document.getElementById('flipHBtn').onclick = function() {
+                if (!image) return;
+                image.set('flipX', !image.flipX);
+                canvas.renderAll();
+            };
+
+            document.getElementById('flipVBtn').onclick = function() {
+                if (!image) return;
+                image.set('flipY', !image.flipY);
+                canvas.renderAll();
+            };
+
+            ['brightnessRange', 'contrastRange', 'saturationRange'].forEach(id => {
+                document.getElementById(id).oninput = function(e) {
+                    if (!image) return;
+                    const value = parseFloat(e.target.value);
+                    const filter = new fabric.Image.filters[id.replace('Range', '').capitalize()]({
+                        [id.replace('Range', '')]: value
+                    });
+                    image.filters = image.filters.filter(f => f.type !== filter.type);
+                    image.filters.push(filter);
+                    image.applyFilters();
+                    canvas.renderAll();
+                };
+            });
+
+            const filters = {
+                vintage: new fabric.Image.filters.Vintage(),
+                sepia: new fabric.Image.filters.Sepia(),
+                polaroid: [
+                    new fabric.Image.filters.Brightness({ brightness: 0.1 }),
+                    new fabric.Image.filters.Contrast({ contrast: 0.1 }),
+                    new fabric.Image.filters.Saturation({ saturation: 0.3 })
+                ],
+                kodachrome: [
+                    new fabric.Image.filters.Brightness({ brightness: 0.1 }),
+                    new fabric.Image.filters.Contrast({ contrast: 0.2 }),
+                    new fabric.Image.filters.Saturation({ saturation: 0.5 })
+                ],
+                technicolor: [
+                    new fabric.Image.filters.Brightness({ brightness: 0.1 }),
+                    new fabric.Image.filters.Saturation({ saturation: 0.8 })
+                ],
+                brownie: [
+                    new fabric.Image.filters.Grayscale(),
+                    new fabric.Image.filters.Sepia(),
+                    new fabric.Image.filters.Contrast({ contrast: 0.1 })
+                ],
+                blackwhite: new fabric.Image.filters.BlackWhite(),
+                vintage2: [
+                    new fabric.Image.filters.Sepia(),
+                    new fabric.Image.filters.Contrast({ contrast: 0.15 }),
+                    new fabric.Image.filters.Noise({ noise: 20 })
+                ],
+                                sharpen: new fabric.Image.filters.Convolute({
+                    matrix: [0, -1, 0, -1, 5, -1, 0, -1, 0]
+                }),
+                emboss: new fabric.Image.filters.Convolute({
+                    matrix: [1, 1, 1, 1, 0.7, -1, -1, -1, -1]
+                }),
+                technicolor2: [
+                    new fabric.Image.filters.Saturation({ saturation: 0.9 }),
+                    new fabric.Image.filters.Contrast({ contrast: 0.2 }),
+                    new fabric.Image.filters.Gamma({ gamma: [1.2, 0.9, 1.1] })
+                ]
+            };
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.onclick = function() {
+                    if (!image) return;
+                    const filterName = this.dataset.filter;
+                    image.filters = Array.isArray(filters[filterName]) ? filters[filterName] : [filters[filterName]];
+                    image.applyFilters();
+                    canvas.renderAll();
+                };
+            });
+
+            document.getElementById('applyImageBtn').onclick = function() {
+                if (!image) return;
+                const dataURL = canvas.toDataURL();
+                quill.insertEmbed(quill.getSelection().index, 'image', dataURL);
+                closeImageEditor();
+            };
+
+            document.getElementById('cancelImageBtn').onclick = closeImageEditor;
+        }
+
+        function openImageEditor() {
+            document.querySelector('.image-editor').style.display = 'block';
+        }
+
+        function closeImageEditor() {
+            document.querySelector('.image-editor').style.display = 'none';
+            canvas.clear();
+            image = null;
+        }
+
+        String.prototype.capitalize = function() {
+            return this.charAt(0).toUpperCase() + this.slice(1);
+        }
+    </script>
+</body>
+</html>
